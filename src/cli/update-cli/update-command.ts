@@ -2203,7 +2203,6 @@ export async function updateFinalizeCommand(opts: UpdateFinalizeOptions): Promis
     },
   };
 
-  await tryWriteCompletionCache(root, Boolean(opts.json));
   if (opts.json) {
     defaultRuntime.writeJson(result);
   } else if (result.status === "ok") {

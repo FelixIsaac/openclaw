@@ -1926,6 +1926,7 @@ export async function runEmbeddedPiAgent(
                   await runPostCompactionSideEffects({
                     config: params.config,
                     agentId: sessionAgentId,
+                    path: params.path,
                     sessionId: activeSessionId,
                     sessionKey: params.sessionKey,
                   });
@@ -2183,6 +2184,7 @@ export async function runEmbeddedPiAgent(
                   contextWindowTokens,
                   maxCharsOverride: toolResultMaxChars,
                   agentId: sessionAgentId,
+                  path: params.path,
                   sessionId: activeSessionId,
                   sessionKey: params.sessionKey,
                   config: params.config,

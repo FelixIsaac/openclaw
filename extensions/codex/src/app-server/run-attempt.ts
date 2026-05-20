@@ -18,6 +18,7 @@ import {
   hasBeforeToolCallPolicy,
   isActiveHarnessContextEngine,
   isSubagentSessionKey,
+  HEARTBEAT_RESPONSE_TOOL_NAME,
   loadCodexBundleMcpThreadConfig,
   normalizeAgentRuntimeTools,
   resolveAttemptSpawnWorkspaceDir,
@@ -977,8 +978,24 @@ export async function runCodexAppServerAttempt(
       yieldDetected = true;
     },
   });
+  const registeredTools = await buildDynamicTools({
+    params,
+    resolvedWorkspace,
+    effectiveWorkspace,
+    sandboxSessionKey,
+    sandbox,
+    nativeToolSurfaceEnabled,
+    runAbortController,
+    sessionAgentId,
+    pluginConfig,
+    forceHeartbeatTool: true,
+    onYieldDetected: () => {
+      yieldDetected = true;
+    },
+  });
   const toolBridge = createCodexDynamicToolBridge({
     tools,
+    registeredTools,
     signal: runAbortController.signal,
     loading: resolveCodexDynamicToolsLoading(pluginConfig),
     directToolNames: shouldForceMessageTool(params) ? ["message"] : [],
@@ -1053,7 +1070,7 @@ export async function runCodexAppServerAttempt(
   });
   const baseDeveloperInstructions = joinPresentSections(
     buildDeveloperInstructions(params, {
-      dynamicTools: toolBridge.specs,
+      dynamicTools: toolBridge.availableSpecs,
     }),
     workspaceBootstrapContext.developerInstructions,
   );
@@ -1084,7 +1101,9 @@ export async function runCodexAppServerAttempt(
       sessionKey: contextSessionKey,
       messages: historyMessages,
       tokenBudget: params.contextTokenBudget,
-      availableTools: new Set(toolBridge.specs.map((tool) => tool.name).filter(isNonEmptyString)),
+      availableTools: new Set(
+        toolBridge.availableSpecs.map((tool) => tool.name).filter(isNonEmptyString),
+      ),
       citationsMode: params.config?.memory?.citations,
       modelId: params.modelId,
       prompt: params.prompt,
@@ -1190,14 +1209,14 @@ export async function runCodexAppServerAttempt(
     developerInstructions: promptBuild.developerInstructions,
     workspaceBootstrapContext,
     skillsPrompt: openClawPromptContext ? (params.skillsSnapshot?.prompt ?? "") : "",
-    tools: toolBridge.specs,
+    tools: toolBridge.availableSpecs,
   });
   const trajectoryRecorder = createCodexTrajectoryRecorder({
     attempt: params,
     cwd: effectiveWorkspace,
     developerInstructions: promptBuild.developerInstructions,
     prompt: codexTurnPromptText,
-    tools: toolBridge.specs,
+    tools: toolBridge.availableSpecs,
   });
   let client: CodexAppServerClient;
   let thread: CodexAppServerThreadLifecycleBinding;
@@ -1524,7 +1543,7 @@ export async function runCodexAppServerAttempt(
     cwd: effectiveWorkspace,
     developerInstructions: promptBuild.developerInstructions,
     prompt: codexTurnPromptText,
-    tools: toolBridge.specs,
+    tools: toolBridge.availableSpecs,
   });
 
   let projector: CodexAppServerEventProjector | undefined;
@@ -3540,6 +3559,7 @@ type DynamicToolBuildParams = {
   runAbortController: AbortController;
   sessionAgentId: string;
   pluginConfig: CodexPluginConfig;
+  forceHeartbeatTool?: boolean;
   onYieldDetected: () => void;
 };
 
@@ -3637,8 +3657,8 @@ async function buildDynamicTools(input: DynamicToolBuildParams) {
     sourceReplyDeliveryMode: params.sourceReplyDeliveryMode,
     disableMessageTool: params.disableMessageTool,
     forceMessageTool: shouldForceMessageTool(params),
-    enableHeartbeatTool: params.trigger === "heartbeat",
-    forceHeartbeatTool: params.trigger === "heartbeat",
+    enableHeartbeatTool: params.trigger === "heartbeat" || input.forceHeartbeatTool === true,
+    forceHeartbeatTool: params.trigger === "heartbeat" || input.forceHeartbeatTool === true,
     onYield: (message) => {
       input.onYieldDetected();
       emitCodexAppServerEvent(params, {
@@ -3659,7 +3679,7 @@ async function buildDynamicTools(input: DynamicToolBuildParams) {
     modelHasVision,
     hasInboundImages: (params.images?.length ?? 0) > 0,
   });
-  const toolsAllow = includeForcedMessageToolAllow(params.toolsAllow, params);
+  const toolsAllow = includeForcedCodexDynamicToolAllow(params.toolsAllow, params, input);
   const filteredTools = filterCodexDynamicToolsForAllowlist(visionFilteredTools, toolsAllow);
   return normalizeAgentRuntimeTools({
     runtimePlan: params.runtimePlan,
@@ -3674,22 +3694,29 @@ async function buildDynamicTools(input: DynamicToolBuildParams) {
   });
 }
 
-function includeForcedMessageToolAllow(
+function includeForcedCodexDynamicToolAllow(
   toolsAllow: string[] | undefined,
   params: EmbeddedRunAttemptParams,
+  input: { forceHeartbeatTool?: boolean },
 ): string[] | undefined {
-  if (
-    !shouldForceMessageTool(params) ||
-    toolsAllow === undefined ||
-    hasWildcardCodexToolsAllow(toolsAllow)
-  ) {
+  if (toolsAllow === undefined || hasWildcardCodexToolsAllow(toolsAllow)) {
+    return toolsAllow;
+  }
+  const forcedToolNames = [
+    ...(shouldForceMessageTool(params) ? ["message"] : []),
+    ...(input.forceHeartbeatTool === true ? [HEARTBEAT_RESPONSE_TOOL_NAME] : []),
+  ];
+  if (forcedToolNames.length === 0) {
     return toolsAllow;
   }
   if (toolsAllow.length === 0) {
-    return ["message"];
+    return forcedToolNames;
   }
   const normalized = new Set(toolsAllow.map((name) => normalizeCodexDynamicToolName(name)));
-  return normalized.has("message") ? toolsAllow : [...toolsAllow, "message"];
+  const missingToolNames = forcedToolNames.filter(
+    (toolName) => !normalized.has(normalizeCodexDynamicToolName(toolName)),
+  );
+  return missingToolNames.length === 0 ? toolsAllow : [...toolsAllow, ...missingToolNames];
 }
 
 function shouldEnableCodexAppServerNativeToolSurface(
@@ -3700,7 +3727,9 @@ function shouldEnableCodexAppServerNativeToolSurface(
   if (isCodexMemoryFlushRun(params)) {
     return false;
   }
-  const toolsAllow = includeForcedMessageToolAllow(params.toolsAllow, params);
+  const toolsAllow = includeForcedCodexDynamicToolAllow(params.toolsAllow, params, {
+    forceHeartbeatTool: false,
+  });
   if (toolsAllow === undefined) {
     return canCodexAppServerNativeToolSurfaceHonorSandbox(sandbox, options);
   }

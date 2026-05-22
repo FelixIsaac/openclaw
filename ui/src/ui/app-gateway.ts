@@ -4,8 +4,9 @@ import {
 } from "../../../src/gateway/events.js";
 import { ConnectErrorDetailCodes } from "../../../src/gateway/protocol/connect-error-details.js";
 import {
+  CHAT_SESSIONS_ACTIVE_MINUTES,
+  CHAT_SESSIONS_REFRESH_LIMIT,
   clearPendingQueueItemsForRun,
-  createChatSessionsLoadOverrides,
   flushChatQueueForEvent,
   refreshChatAvatar,
 } from "./app-chat.ts";
@@ -109,8 +110,6 @@ type GatewayHost = {
   pendingUpdateExpectedVersion: string | null;
   updateStatusBanner: { tone: "danger" | "warn" | "info"; text: string } | null;
   sessionKey: string;
-  chatSessionSearchAppliedQuery: string;
-  sessionsShowArchived: boolean;
   chatRunId: string | null;
   pendingAbort?: { runId?: string | null; sessionKey: string } | null;
   refreshSessionsAfterChat: Set<string>;
@@ -690,7 +689,8 @@ function handleTerminalChatEvent(
     host.refreshSessionsAfterChat.delete(runId);
     if (state === "final") {
       void loadSessions(host as unknown as SessionsState, {
-        ...createChatSessionsLoadOverrides(host),
+        activeMinutes: CHAT_SESSIONS_ACTIVE_MINUTES,
+        limit: CHAT_SESSIONS_REFRESH_LIMIT,
       });
     }
   }
@@ -838,7 +838,8 @@ function handleSessionMessageGatewayEvent(
     const refreshStartedAt = Date.now();
     const runIdBeforeRefresh = host.chatRunId;
     void loadSessions(host as unknown as SessionsState, {
-      ...createChatSessionsLoadOverrides(host),
+      activeMinutes: CHAT_SESSIONS_ACTIVE_MINUTES,
+      limit: CHAT_SESSIONS_REFRESH_LIMIT,
     }).finally(() =>
       replayDeferredSessionMessageReloadAfterSessionsRefresh(
         host,

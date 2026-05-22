@@ -18,7 +18,6 @@ import {
   hasBeforeToolCallPolicy,
   isActiveHarnessContextEngine,
   isSubagentSessionKey,
-  HEARTBEAT_RESPONSE_TOOL_NAME,
   loadCodexBundleMcpThreadConfig,
   normalizeAgentRuntimeTools,
   resolveAttemptSpawnWorkspaceDir,
@@ -3681,7 +3680,7 @@ async function buildDynamicTools(input: DynamicToolBuildParams) {
     modelHasVision,
     hasInboundImages: (params.images?.length ?? 0) > 0,
   });
-  const toolsAllow = includeForcedCodexDynamicToolAllow(params.toolsAllow, params, input);
+  const toolsAllow = includeForcedCodexDynamicToolAllow(params.toolsAllow, params);
   const filteredTools = filterCodexDynamicToolsForAllowlist(visionFilteredTools, toolsAllow);
   return normalizeAgentRuntimeTools({
     runtimePlan: input.ignoreRuntimePlan ? undefined : params.runtimePlan,
@@ -3699,15 +3698,11 @@ async function buildDynamicTools(input: DynamicToolBuildParams) {
 function includeForcedCodexDynamicToolAllow(
   toolsAllow: string[] | undefined,
   params: EmbeddedRunAttemptParams,
-  input: { forceHeartbeatTool?: boolean },
 ): string[] | undefined {
   if (toolsAllow === undefined || hasWildcardCodexToolsAllow(toolsAllow)) {
     return toolsAllow;
   }
-  const forcedToolNames = [
-    ...(shouldForceMessageTool(params) ? ["message"] : []),
-    ...(input.forceHeartbeatTool === true ? [HEARTBEAT_RESPONSE_TOOL_NAME] : []),
-  ];
+  const forcedToolNames = shouldForceMessageTool(params) ? ["message"] : [];
   if (forcedToolNames.length === 0) {
     return toolsAllow;
   }
@@ -3729,9 +3724,7 @@ function shouldEnableCodexAppServerNativeToolSurface(
   if (isCodexMemoryFlushRun(params)) {
     return false;
   }
-  const toolsAllow = includeForcedCodexDynamicToolAllow(params.toolsAllow, params, {
-    forceHeartbeatTool: false,
-  });
+  const toolsAllow = includeForcedCodexDynamicToolAllow(params.toolsAllow, params);
   if (toolsAllow === undefined) {
     return canCodexAppServerNativeToolSurfaceHonorSandbox(sandbox, options);
   }

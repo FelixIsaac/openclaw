@@ -4,6 +4,7 @@ import type { SessionSystemPromptReport } from "../../../config/sessions/types.j
 import type { ContextEngine, ContextEnginePromptCacheInfo } from "../../../context-engine/types.js";
 import type { DiagnosticTraceContext } from "../../../infra/diagnostic-trace-context.js";
 import type { PluginHookBeforeAgentStartResult } from "../../../plugins/hook-before-agent-start.types.js";
+import type { AcceptedSessionSpawn } from "../../accepted-session-spawn.js";
 import type { AgentMessage } from "../../agent-core-contract.js";
 import type { AuthProfileStore } from "../../auth-profiles/types.js";
 import type { ModelRegistry } from "../../model-registry-contract.js";
@@ -55,6 +56,7 @@ export type EmbeddedRunAttemptParams = EmbeddedRunAttemptBase & {
   runtimePlan?: AgentRuntimePlan;
   /** Live observer called after wrapped tool outcomes are recorded. */
   onToolOutcome?: ToolOutcomeObserver;
+  emitBeforeToolCallDiagnostics?: boolean;
   model: Model<Api>;
   authStorage: AuthStorage;
   /** Auth profile store already resolved during startup for this attempt. */
@@ -141,6 +143,7 @@ export type EmbeddedRunAttemptResult = {
   messagingToolSentMediaUrls: string[];
   messagingToolSentTargets: MessagingToolSend[];
   messagingToolSourceReplyPayloads?: MessagingToolSourceReplyPayload[];
+  acceptedSessionSpawns?: AcceptedSessionSpawn[];
   heartbeatToolResponse?: HeartbeatToolResponse;
   toolMediaUrls?: string[];
   toolAudioAsVoice?: boolean;

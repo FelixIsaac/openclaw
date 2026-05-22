@@ -11,7 +11,7 @@ describe("normalizeXaiModelId", () => {
     );
   });
 
-  it("maps older fast and 4.20 ids to the current Pi-backed ids", () => {
+  it("maps older fast and 4.20 ids to the current OpenClaw-backed ids", () => {
     expect(normalizeXaiModelId("grok-4-fast-reasoning")).toBe("grok-4-fast");
     expect(normalizeXaiModelId("grok-4-1-fast-reasoning")).toBe("grok-4-1-fast");
     expect(normalizeXaiModelId("grok-4.20-reasoning")).toBe("grok-4.20-beta-latest-reasoning");

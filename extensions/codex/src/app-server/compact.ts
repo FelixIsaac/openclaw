@@ -6,8 +6,8 @@ import {
   resolveCompactionTimeoutMs,
   resolveContextEngineOwnerPluginId,
   runHarnessContextEngineMaintenance,
-  type CompactEmbeddedPiSessionParams,
-  type EmbeddedPiCompactResult,
+  type CompactEmbeddedAgentSessionParams,
+  type EmbeddedAgentCompactResult,
 } from "openclaw/plugin-sdk/agent-harness-runtime";
 import {
   defaultCodexAppServerClientFactory,
@@ -33,9 +33,9 @@ const DEFAULT_CODEX_COMPACTION_WAIT_TIMEOUT_MS = 5 * 60 * 1000;
 const warnedIgnoredCompactionOverrides = new Set<string>();
 
 export async function maybeCompactCodexAppServerSession(
-  params: CompactEmbeddedPiSessionParams,
+  params: CompactEmbeddedAgentSessionParams,
   options: { pluginConfig?: unknown; clientFactory?: CodexAppServerClientFactory } = {},
-): Promise<EmbeddedPiCompactResult | undefined> {
+): Promise<EmbeddedAgentCompactResult | undefined> {
   const activeContextEngine = isActiveHarnessContextEngine(params.contextEngine)
     ? params.contextEngine
     : undefined;
@@ -67,9 +67,9 @@ export async function maybeCompactCodexAppServerSession(
 }
 
 async function compactOwningContextEngine(
-  params: CompactEmbeddedPiSessionParams,
-  contextEngine: NonNullable<CompactEmbeddedPiSessionParams["contextEngine"]>,
-): Promise<EmbeddedPiCompactResult> {
+  params: CompactEmbeddedAgentSessionParams,
+  contextEngine: NonNullable<CompactEmbeddedAgentSessionParams["contextEngine"]>,
+): Promise<EmbeddedAgentCompactResult> {
   embeddedAgentLog.info("starting context-engine-owned Codex app-server compaction", {
     sessionId: params.sessionId,
     sessionKey: params.sessionKey,
@@ -189,7 +189,9 @@ function mergeContextEngineCompactionDetails(
   return extra;
 }
 
-function warnIfIgnoringOpenClawCompactionOverrides(params: CompactEmbeddedPiSessionParams): void {
+function warnIfIgnoringOpenClawCompactionOverrides(
+  params: CompactEmbeddedAgentSessionParams,
+): void {
   const activeContextEngine = isActiveHarnessContextEngine(params.contextEngine)
     ? params.contextEngine
     : undefined;
@@ -213,8 +215,8 @@ function warnIfIgnoringOpenClawCompactionOverrides(params: CompactEmbeddedPiSess
 }
 
 function readIgnoredCompactionOverridePaths(
-  params: CompactEmbeddedPiSessionParams,
-  activeContextEngine?: CompactEmbeddedPiSessionParams["contextEngine"],
+  params: CompactEmbeddedAgentSessionParams,
+  activeContextEngine?: CompactEmbeddedAgentSessionParams["contextEngine"],
 ): string[] {
   const ignored = new Set<string>();
   const configuredContextEngine = readStringPath(params.config, [
@@ -258,7 +260,7 @@ function readIgnoredCompactionOverridePaths(
   return [...ignored];
 }
 
-function readCompactionOverrideEntries(params: CompactEmbeddedPiSessionParams): Array<{
+function readCompactionOverrideEntries(params: CompactEmbeddedAgentSessionParams): Array<{
   path: string;
   record: Record<string, unknown>;
   inheritedRecord?: Record<string, unknown>;
@@ -320,9 +322,9 @@ function readStringPath(value: unknown, path: readonly string[]): string | undef
 }
 
 async function compactCodexNativeThread(
-  params: CompactEmbeddedPiSessionParams,
+  params: CompactEmbeddedAgentSessionParams,
   options: { pluginConfig?: unknown; clientFactory?: CodexAppServerClientFactory } = {},
-): Promise<EmbeddedPiCompactResult | undefined> {
+): Promise<EmbeddedAgentCompactResult | undefined> {
   const sandboxBlock = resolveCodexNativeSandboxBlock({
     config: params.config,
     sessionKey: params.sandboxSessionKey ?? params.sessionKey,

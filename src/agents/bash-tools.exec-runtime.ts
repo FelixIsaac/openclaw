@@ -1,5 +1,4 @@
 import path from "node:path";
-import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { emitDiagnosticEvent } from "../infra/diagnostic-events.js";
 import {
   DEFAULT_EXEC_APPROVAL_TIMEOUT_MS,
@@ -17,6 +16,7 @@ import { isSubagentSessionKey } from "../sessions/session-key-utils.js";
 import type { ProcessSession } from "./bash-process-registry.js";
 import type { ExecToolDetails } from "./bash-tools.exec-types.js";
 import type { BashSandboxConfig } from "./bash-tools.shared.js";
+import type { AgentToolResult } from "./runtime/index.js";
 export { applyPathPrepend, findPathKey, normalizePathPrepend } from "../infra/path-prepend.js";
 export {
   normalizeExecAsk,
@@ -110,7 +110,7 @@ export function validateHostEnv(env: Record<string, string>): void {
   }
 }
 export const DEFAULT_MAX_OUTPUT = clampWithDefault(
-  readEnvInt("PI_BASH_MAX_OUTPUT_CHARS"),
+  readEnvInt("OPENCLAW_BASH_MAX_OUTPUT_CHARS"),
   200_000,
   1_000,
   200_000,
@@ -583,7 +583,11 @@ export function buildExecRuntimeErrorOutcome(params: {
  * This ensures our paths take precedence even if user RC files (e.g. ~/.zshenv)
  * prepend their own entries to PATH during shell startup.
  */
-function wrapPosixCommandWithPathPrepend(command: string, env: Record<string, string>, pathPrepend?: string[]): string {
+function wrapPosixCommandWithPathPrepend(
+  command: string,
+  env: Record<string, string>,
+  pathPrepend?: string[],
+): string {
   if (process.platform === "win32") {
     return command;
   }
@@ -699,7 +703,7 @@ export async function runExecProcess(opts: {
       return;
     }
     const tailText = session.tail || session.aggregated;
-    // Note: opts.onUpdate() is provided by pi-agent-core's agent-loop and
+    // Note: opts.onUpdate() is provided by agent runtime's agent-loop and
     // internally pushes Promise.resolve(emit(event)) into an updateEvents
     // array.  Because emit → processEvents is async, any failure (e.g.
     // activeRun cleared) produces a *rejected Promise*, not a synchronous
@@ -794,9 +798,13 @@ export async function runExecProcess(opts: {
       };
     }
     const { shell, args: shellArgs } = getShellConfig();
-    
+
     // Wrap the command to enforce PATH prepend precedence over shell RC overrides.
-    const commandWithPathPrepend = wrapPosixCommandWithPathPrepend(execCommand, shellRuntimeEnv, opts.pathPrepend);
+    const commandWithPathPrepend = wrapPosixCommandWithPathPrepend(
+      execCommand,
+      shellRuntimeEnv,
+      opts.pathPrepend,
+    );
 
     const childArgv = [shell, ...shellArgs, commandWithPathPrepend];
     if (opts.usePty) {

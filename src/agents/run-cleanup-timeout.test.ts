@@ -45,7 +45,7 @@ describe("agent cleanup timeout", () => {
     const result = runAgentCleanupStep({
       runId: "run-trajectory",
       sessionId: "session-trajectory",
-      step: "pi-trajectory-flush",
+      step: "openclaw-trajectory-flush",
       cleanup,
       log,
       env: {
@@ -61,7 +61,7 @@ describe("agent cleanup timeout", () => {
 
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(log.warn).toHaveBeenCalledWith(
-      "agent cleanup timed out: runId=run-trajectory sessionId=session-trajectory step=pi-trajectory-flush timeoutMs=25000",
+      "agent cleanup timed out: runId=run-trajectory sessionId=session-trajectory step=openclaw-trajectory-flush timeoutMs=25000",
     );
   });
 
@@ -71,7 +71,7 @@ describe("agent cleanup timeout", () => {
     const result = runAgentCleanupStep({
       runId: "run-trajectory",
       sessionId: "session-trajectory",
-      step: "pi-trajectory-flush",
+      step: "openclaw-trajectory-flush",
       cleanup,
       log,
       timeoutMs: 5,
@@ -82,7 +82,7 @@ describe("agent cleanup timeout", () => {
     await expect(result).resolves.toBeUndefined();
 
     expect(log.warn).toHaveBeenCalledWith(
-      "agent cleanup timed out: runId=run-trajectory sessionId=session-trajectory step=pi-trajectory-flush timeoutMs=5 details=pendingWrites=2 queuedBytes=128 activeOperation=file-append",
+      "agent cleanup timed out: runId=run-trajectory sessionId=session-trajectory step=openclaw-trajectory-flush timeoutMs=5 details=pendingWrites=2 queuedBytes=128 activeOperation=file-append",
     );
   });
 
@@ -92,7 +92,7 @@ describe("agent cleanup timeout", () => {
     const result = runAgentCleanupStep({
       runId: "run-trajectory",
       sessionId: "session-trajectory",
-      step: "pi-trajectory-flush",
+      step: "openclaw-trajectory-flush",
       cleanup,
       log,
       timeoutMs: 5,
@@ -105,7 +105,7 @@ describe("agent cleanup timeout", () => {
     await expect(result).resolves.toBeUndefined();
 
     expect(log.warn).toHaveBeenCalledWith(
-      "agent cleanup timed out: runId=run-trajectory sessionId=session-trajectory step=pi-trajectory-flush timeoutMs=5 detailsError=details unavailable",
+      "agent cleanup timed out: runId=run-trajectory sessionId=session-trajectory step=openclaw-trajectory-flush timeoutMs=5 detailsError=details unavailable",
     );
   });
 
@@ -134,7 +134,7 @@ describe("agent cleanup timeout", () => {
   it("prefers explicit cleanup timeout values over environment overrides", () => {
     expect(
       resolveAgentCleanupStepTimeoutMs({
-        step: "pi-trajectory-flush",
+        step: "openclaw-trajectory-flush",
         timeoutMs: 2_000,
         env: {
           OPENCLAW_TRAJECTORY_FLUSH_TIMEOUT_MS: "25000",
@@ -147,7 +147,7 @@ describe("agent cleanup timeout", () => {
   it("keeps explicit zero cleanup timeouts as a one millisecond timeout", () => {
     expect(
       resolveAgentCleanupStepTimeoutMs({
-        step: "pi-trajectory-flush",
+        step: "openclaw-trajectory-flush",
         timeoutMs: 0,
         env: {
           OPENCLAW_TRAJECTORY_FLUSH_TIMEOUT_MS: "25000",
@@ -159,7 +159,7 @@ describe("agent cleanup timeout", () => {
   it("ignores invalid cleanup timeout environment values", () => {
     expect(
       resolveAgentCleanupStepTimeoutMs({
-        step: "pi-trajectory-flush",
+        step: "openclaw-trajectory-flush",
         env: {
           OPENCLAW_TRAJECTORY_FLUSH_TIMEOUT_MS: "0",
           OPENCLAW_AGENT_CLEANUP_TIMEOUT_MS: "not-a-number",

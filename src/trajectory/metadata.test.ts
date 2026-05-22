@@ -115,7 +115,7 @@ describe("trajectory metadata", () => {
       webSearchProviderIds: [],
       migrationProviderIds: [],
       memoryEmbeddingProviderIds: [],
-      agentHarnessIds: ["pi"],
+      agentHarnessIds: ["openclaw"],
       cliCommands: [],
       services: [],
       gatewayDiscoveryServiceIds: [],

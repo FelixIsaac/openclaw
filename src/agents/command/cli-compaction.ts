@@ -1,5 +1,3 @@
-import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { SessionEntry } from "../../config/sessions/types.js";
 import type { AgentCompactionMode } from "../../config/types.agent-defaults.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
@@ -7,19 +5,21 @@ import { ensureContextEnginesInitialized as ensureContextEnginesInitializedImpl 
 import { resolveContextEngine as resolveContextEngineImpl } from "../../context-engine/registry.js";
 import type { ContextEngine } from "../../context-engine/types.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
-import { buildEmbeddedCompactionRuntimeContext } from "../pi-embedded-runner/compaction-runtime-context.js";
+import { createPreparedEmbeddedAgentSettingsManager as createPreparedEmbeddedAgentSettingsManagerImpl } from "../agent-project-settings.js";
+import {
+  applyAgentAutoCompactionGuard as applyAgentAutoCompactionGuardImpl,
+  resolveEffectiveCompactionMode,
+} from "../agent-settings.js";
+import { buildEmbeddedCompactionRuntimeContext } from "../embedded-agent-runner/compaction-runtime-context.js";
 import {
   compactContextEngineWithSafetyTimeout,
   resolveCompactionTimeoutMs,
-} from "../pi-embedded-runner/compaction-safety-timeout.js";
-import { runContextEngineMaintenance as runContextEngineMaintenanceImpl } from "../pi-embedded-runner/context-engine-maintenance.js";
-import { shouldPreemptivelyCompactBeforePrompt as shouldPreemptivelyCompactBeforePromptImpl } from "../pi-embedded-runner/run/preemptive-compaction.js";
-import { resolveLiveToolResultMaxChars as resolveLiveToolResultMaxCharsImpl } from "../pi-embedded-runner/tool-result-truncation.js";
-import { createPreparedEmbeddedPiSettingsManager as createPreparedEmbeddedPiSettingsManagerImpl } from "../pi-project-settings.js";
-import {
-  applyPiAutoCompactionGuard as applyPiAutoCompactionGuardImpl,
-  resolveEffectiveCompactionMode,
-} from "../pi-settings.js";
+} from "../embedded-agent-runner/compaction-safety-timeout.js";
+import { runContextEngineMaintenance as runContextEngineMaintenanceImpl } from "../embedded-agent-runner/context-engine-maintenance.js";
+import { shouldPreemptivelyCompactBeforePrompt as shouldPreemptivelyCompactBeforePromptImpl } from "../embedded-agent-runner/run/preemptive-compaction.js";
+import { resolveLiveToolResultMaxChars as resolveLiveToolResultMaxCharsImpl } from "../embedded-agent-runner/tool-result-truncation.js";
+import type { AgentMessage } from "../runtime/index.js";
+import { SessionManager } from "../sessions/index.js";
 import type { SkillSnapshot } from "../skills.js";
 import { recordCliCompactionInStore as recordCliCompactionInStoreImpl } from "./session-store.js";
 
@@ -39,13 +39,13 @@ type CliCompactionDeps = {
   openSessionManager: (sessionFile: string) => SessionManagerLike;
   ensureContextEnginesInitialized: () => void;
   resolveContextEngine: (cfg: OpenClawConfig) => Promise<ContextEngine>;
-  createPreparedEmbeddedPiSettingsManager: (params: {
+  createPreparedEmbeddedAgentSettingsManager: (params: {
     cwd: string;
     agentDir: string;
     cfg?: OpenClawConfig;
     contextTokenBudget?: number;
   }) => SettingsManagerLike | Promise<SettingsManagerLike>;
-  applyPiAutoCompactionGuard: (params: {
+  applyAgentAutoCompactionGuard: (params: {
     settingsManager: SettingsManagerLike;
     contextEngineInfo?: ContextEngine["info"];
     compactionMode?: AgentCompactionMode;
@@ -62,8 +62,8 @@ const cliCompactionDeps: CliCompactionDeps = {
   openSessionManager: (sessionFile: string) => SessionManager.open(sessionFile),
   ensureContextEnginesInitialized: ensureContextEnginesInitializedImpl,
   resolveContextEngine: resolveContextEngineImpl,
-  createPreparedEmbeddedPiSettingsManager: createPreparedEmbeddedPiSettingsManagerImpl,
-  applyPiAutoCompactionGuard: applyPiAutoCompactionGuardImpl,
+  createPreparedEmbeddedAgentSettingsManager: createPreparedEmbeddedAgentSettingsManagerImpl,
+  applyAgentAutoCompactionGuard: applyAgentAutoCompactionGuardImpl,
   shouldPreemptivelyCompactBeforePrompt: shouldPreemptivelyCompactBeforePromptImpl,
   resolveLiveToolResultMaxChars: resolveLiveToolResultMaxCharsImpl,
   runContextEngineMaintenance: runContextEngineMaintenanceImpl,
@@ -79,8 +79,8 @@ export function resetCliCompactionTestDeps(): void {
     openSessionManager: (sessionFile: string) => SessionManager.open(sessionFile),
     ensureContextEnginesInitialized: ensureContextEnginesInitializedImpl,
     resolveContextEngine: resolveContextEngineImpl,
-    createPreparedEmbeddedPiSettingsManager: createPreparedEmbeddedPiSettingsManagerImpl,
-    applyPiAutoCompactionGuard: applyPiAutoCompactionGuardImpl,
+    createPreparedEmbeddedAgentSettingsManager: createPreparedEmbeddedAgentSettingsManagerImpl,
+    applyAgentAutoCompactionGuard: applyAgentAutoCompactionGuardImpl,
     shouldPreemptivelyCompactBeforePrompt: shouldPreemptivelyCompactBeforePromptImpl,
     resolveLiveToolResultMaxChars: resolveLiveToolResultMaxCharsImpl,
     runContextEngineMaintenance: runContextEngineMaintenanceImpl,
@@ -221,13 +221,13 @@ export async function runCliTurnCompactionLifecycle(params: {
   cliCompactionDeps.ensureContextEnginesInitialized();
   const contextEngine = await cliCompactionDeps.resolveContextEngine(params.cfg);
   const sessionManager = cliCompactionDeps.openSessionManager(sessionFile);
-  const settingsManager = await cliCompactionDeps.createPreparedEmbeddedPiSettingsManager({
+  const settingsManager = await cliCompactionDeps.createPreparedEmbeddedAgentSettingsManager({
     cwd: params.workspaceDir,
     agentDir: params.agentDir,
     cfg: params.cfg,
     contextTokenBudget,
   });
-  await cliCompactionDeps.applyPiAutoCompactionGuard({
+  await cliCompactionDeps.applyAgentAutoCompactionGuard({
     settingsManager,
     contextEngineInfo: contextEngine.info,
     compactionMode: resolveEffectiveCompactionMode(params.cfg),

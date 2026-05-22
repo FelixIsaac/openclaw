@@ -1,4 +1,4 @@
-import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
+import { createAssistantMessageEventStream } from "openclaw/plugin-sdk/llm";
 
 type TransportUsage = {
   input: number;

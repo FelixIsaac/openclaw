@@ -16,9 +16,9 @@ import {
 } from "./agent-runner-memory.js";
 import { createTestFollowupRun, writeTestSessionStore } from "./agent-runner.test-fixtures.js";
 
-const compactEmbeddedPiSessionMock = vi.fn();
+const compactEmbeddedAgentSessionMock = vi.fn();
 const runWithModelFallbackMock = vi.fn();
-const runEmbeddedPiAgentMock = vi.fn();
+const runEmbeddedAgentMock = vi.fn();
 const refreshQueuedFollowupSessionMock = vi.fn();
 const incrementCompactionCountMock = vi.fn();
 const ensureSelectedAgentHarnessPluginMock = vi.fn();
@@ -56,7 +56,7 @@ type ModelFallbackParams = {
   }) => Promise<void> | void;
 };
 
-type EmbeddedPiAgentParams = {
+type EmbeddedAgentParams = {
   provider?: string;
   model?: string;
   authProfileId?: unknown;
@@ -70,7 +70,7 @@ type EmbeddedPiAgentParams = {
   bootstrapPromptWarningSignature?: string;
 };
 
-type CompactEmbeddedPiSessionParams = {
+type CompactEmbeddedAgentSessionParams = {
   sessionKey?: string;
   sandboxSessionKey?: string;
   currentTokenCount?: number;
@@ -97,20 +97,20 @@ function requireModelFallbackCall(index = 0) {
   return call;
 }
 
-function requireEmbeddedPiAgentCall(index = 0) {
-  const call = runEmbeddedPiAgentMock.mock.calls[index]?.[0] as EmbeddedPiAgentParams | undefined;
+function requireEmbeddedAgentCall(index = 0) {
+  const call = runEmbeddedAgentMock.mock.calls[index]?.[0] as EmbeddedAgentParams | undefined;
   if (!call) {
-    throw new Error(`runEmbeddedPiAgent call ${index} missing`);
+    throw new Error(`runEmbeddedAgent call ${index} missing`);
   }
   return call;
 }
 
-function requireCompactEmbeddedPiSessionCall(index = 0) {
-  const call = compactEmbeddedPiSessionMock.mock.calls[index]?.[0] as
-    | CompactEmbeddedPiSessionParams
+function requireCompactEmbeddedAgentSessionCall(index = 0) {
+  const call = compactEmbeddedAgentSessionMock.mock.calls[index]?.[0] as
+    | CompactEmbeddedAgentSessionParams
     | undefined;
   if (!call) {
-    throw new Error(`compactEmbeddedPiSession call ${index} missing`);
+    throw new Error(`compactEmbeddedAgentSession call ${index} missing`);
   }
   return call;
 }
@@ -134,12 +134,12 @@ describe("runMemoryFlushIfNeeded", () => {
       model,
       attempts: [],
     }));
-    compactEmbeddedPiSessionMock.mockReset().mockResolvedValue({
+    compactEmbeddedAgentSessionMock.mockReset().mockResolvedValue({
       ok: true,
       compacted: true,
       result: { tokensAfter: 42 },
     });
-    runEmbeddedPiAgentMock.mockReset().mockResolvedValue({ payloads: [], meta: {} });
+    runEmbeddedAgentMock.mockReset().mockResolvedValue({ payloads: [], meta: {} });
     refreshQueuedFollowupSessionMock.mockReset();
     ensureSelectedAgentHarnessPluginMock.mockReset().mockResolvedValue(undefined);
     incrementCompactionCountMock.mockReset().mockImplementation(async (params) => {
@@ -171,9 +171,9 @@ describe("runMemoryFlushIfNeeded", () => {
       return nextEntry.compactionCount;
     });
     setAgentRunnerMemoryTestDeps({
-      compactEmbeddedPiSession: compactEmbeddedPiSessionMock as never,
+      compactEmbeddedAgentSession: compactEmbeddedAgentSessionMock as never,
       runWithModelFallback: runWithModelFallbackMock as never,
-      runEmbeddedPiAgent: runEmbeddedPiAgentMock as never,
+      runEmbeddedAgent: runEmbeddedAgentMock as never,
       refreshQueuedFollowupSession: refreshQueuedFollowupSessionMock as never,
       incrementCompactionCount: incrementCompactionCountMock as never,
       ensureSelectedAgentHarnessPlugin: ensureSelectedAgentHarnessPluginMock as never,
@@ -201,7 +201,7 @@ describe("runMemoryFlushIfNeeded", () => {
     const sessionStore = { [sessionKey]: sessionEntry };
     await writeTestSessionStore(storePath, sessionKey, sessionEntry);
 
-    runEmbeddedPiAgentMock.mockImplementationOnce(
+    runEmbeddedAgentMock.mockImplementationOnce(
       async (params: {
         onAgentEvent?: (evt: { stream: string; data: { phase: string } }) => void;
       }) => {
@@ -239,8 +239,8 @@ describe("runMemoryFlushIfNeeded", () => {
 
     expect(entry?.sessionId).toBe("session-rotated");
     expect(followupRun.run.sessionId).toBe("session-rotated");
-    expect(runEmbeddedPiAgentMock).toHaveBeenCalledTimes(1);
-    const flushCall = requireEmbeddedPiAgentCall();
+    expect(runEmbeddedAgentMock).toHaveBeenCalledTimes(1);
+    const flushCall = requireEmbeddedAgentCall();
     expect(flushCall.prompt).toContain("Pre-compaction memory flush.");
     expect(flushCall.transcriptPrompt).toBe("");
     expect(flushCall.prompt).not.toBe(flushCall.transcriptPrompt);
@@ -270,7 +270,7 @@ describe("runMemoryFlushIfNeeded", () => {
       compactionCount: 1,
     };
     const visibleErrorPayloads: Array<{ text?: string; isError?: boolean }> = [];
-    runEmbeddedPiAgentMock.mockResolvedValueOnce({
+    runEmbeddedAgentMock.mockResolvedValueOnce({
       payloads: [
         { text: "normal silent maintenance reply" },
         {
@@ -502,8 +502,8 @@ describe("runMemoryFlushIfNeeded", () => {
     expect(fallbackCall.provider).toBe("ollama");
     expect(fallbackCall.model).toBe("qwen3:8b");
     expect(fallbackCall.fallbacksOverride).toEqual([]);
-    expect(runEmbeddedPiAgentMock).toHaveBeenCalledTimes(1);
-    const agentCall = requireEmbeddedPiAgentCall();
+    expect(runEmbeddedAgentMock).toHaveBeenCalledTimes(1);
+    const agentCall = requireEmbeddedAgentCall();
     expect(agentCall.provider).toBe("ollama");
     expect(agentCall.model).toBe("qwen3:8b");
     expect(agentCall.authProfileId).toBeUndefined();
@@ -573,6 +573,37 @@ describe("runMemoryFlushIfNeeded", () => {
     });
   });
 
+  it("normalizes legacy runtime pins before memory-flush fallback preflight", async () => {
+    const sessionEntry: SessionEntry = {
+      sessionId: "session",
+      updatedAt: Date.now(),
+      totalTokens: 80_000,
+      compactionCount: 1,
+      agentRuntimeOverride: "pi",
+    };
+
+    await runMemoryFlushIfNeeded({
+      cfg: { agents: { defaults: { compaction: { memoryFlush: {} } } } },
+      followupRun: createTestFollowupRun({
+        provider: "openai",
+        model: "gpt-5.4",
+      }),
+      sessionCtx: { Provider: "telegram" } as unknown as TemplateContext,
+      defaultModel: "openai/gpt-5.4",
+      agentCfgContextTokens: 100_000,
+      resolvedVerboseLevel: "off",
+      sessionEntry,
+      sessionStore: { main: sessionEntry },
+      sessionKey: "main",
+      isHeartbeat: false,
+      replyOperation: createReplyOperation(),
+    });
+
+    expect(
+      requireModelFallbackCall().resolveAgentHarnessRuntimeOverride?.("openai", "gpt-5.4"),
+    ).toBe("openclaw");
+  });
+
   it("skips memory flush for CLI providers", async () => {
     const sessionEntry: SessionEntry = {
       sessionId: "session",
@@ -596,7 +627,7 @@ describe("runMemoryFlushIfNeeded", () => {
     });
 
     expect(entry).toBe(sessionEntry);
-    expect(runEmbeddedPiAgentMock).not.toHaveBeenCalled();
+    expect(runEmbeddedAgentMock).not.toHaveBeenCalled();
   });
 
   it("uses runtime policy session key when checking memory-flush sandbox writability", async () => {
@@ -639,7 +670,7 @@ describe("runMemoryFlushIfNeeded", () => {
     });
 
     expect(entry).toBe(sessionEntry);
-    expect(runEmbeddedPiAgentMock).not.toHaveBeenCalled();
+    expect(runEmbeddedAgentMock).not.toHaveBeenCalled();
   });
 
   it("passes runtime policy session key to preflight compaction sandbox resolution", async () => {
@@ -683,8 +714,8 @@ describe("runMemoryFlushIfNeeded", () => {
       replyOperation: createReplyOperation(),
     });
 
-    expect(compactEmbeddedPiSessionMock).toHaveBeenCalledTimes(1);
-    const compactCall = requireCompactEmbeddedPiSessionCall();
+    expect(compactEmbeddedAgentSessionMock).toHaveBeenCalledTimes(1);
+    const compactCall = requireCompactEmbeddedAgentSessionCall();
     expect(compactCall.sessionKey).toBe("agent:main:main");
     expect(compactCall.sandboxSessionKey).toBe("agent:main:telegram:default:direct:12345");
   });
@@ -705,7 +736,7 @@ describe("runMemoryFlushIfNeeded", () => {
       systemPrompt: "Write memory to memory/YYYY-MM-DD.md.",
       relativePath: "memory/2023-11-14.md",
     }));
-    compactEmbeddedPiSessionMock.mockResolvedValueOnce({
+    compactEmbeddedAgentSessionMock.mockResolvedValueOnce({
       ok: true,
       compacted: true,
       result: {
@@ -804,7 +835,7 @@ describe("runMemoryFlushIfNeeded", () => {
       replyOperation: createReplyOperation(),
     });
 
-    const compactCall = requireCompactEmbeddedPiSessionCall();
+    const compactCall = requireCompactEmbeddedAgentSessionCall();
     expect(compactCall.currentTokenCount).toBeGreaterThanOrEqual(100_000);
   });
 
@@ -850,12 +881,12 @@ describe("runMemoryFlushIfNeeded", () => {
       replyOperation: createReplyOperation(),
     });
 
-    expect(compactEmbeddedPiSessionMock).toHaveBeenCalledTimes(1);
-    const compactCall = requireCompactEmbeddedPiSessionCall();
+    expect(compactEmbeddedAgentSessionMock).toHaveBeenCalledTimes(1);
+    const compactCall = requireCompactEmbeddedAgentSessionCall();
     expect(compactCall.currentTokenCount).toBe(347_000);
   });
 
-  it("keeps the OpenAI API context window for persisted PI runtime overrides", async () => {
+  it("keeps the OpenAI API context window for persisted OpenClaw runtime overrides", async () => {
     registerMemoryFlushPlanResolverForTest(() => ({
       softThresholdTokens: 4_000,
       forceFlushTranscriptBytes: 1_000_000_000,
@@ -869,7 +900,7 @@ describe("runMemoryFlushIfNeeded", () => {
       updatedAt: Date.now(),
       totalTokens: 347_000,
       totalTokensFresh: false,
-      agentRuntimeOverride: "pi",
+      agentRuntimeOverride: "openclaw",
     };
 
     const entry = await runPreflightCompactionIfNeeded({
@@ -898,7 +929,7 @@ describe("runMemoryFlushIfNeeded", () => {
     });
 
     expect(entry).toBe(sessionEntry);
-    expect(compactEmbeddedPiSessionMock).not.toHaveBeenCalled();
+    expect(compactEmbeddedAgentSessionMock).not.toHaveBeenCalled();
   });
 
   it("uses the active run sessionFile when the session entry has no transcript path", async () => {
@@ -945,8 +976,8 @@ describe("runMemoryFlushIfNeeded", () => {
       replyOperation: createReplyOperation(),
     });
 
-    expect(compactEmbeddedPiSessionMock).toHaveBeenCalledTimes(1);
-    const compactCall = requireCompactEmbeddedPiSessionCall();
+    expect(compactEmbeddedAgentSessionMock).toHaveBeenCalledTimes(1);
+    const compactCall = requireCompactEmbeddedAgentSessionCall();
     expect(compactCall.sessionId).toBe("session");
     expect(compactCall.sessionFile).toContain("active-run-session.jsonl");
   });
@@ -1004,7 +1035,7 @@ describe("runMemoryFlushIfNeeded", () => {
       replyOperation: createReplyOperation(),
     });
 
-    const compactCall = requireCompactEmbeddedPiSessionCall();
+    const compactCall = requireCompactEmbeddedAgentSessionCall();
     expect(compactCall.currentTokenCount).toBeGreaterThan(100_000);
   });
 
@@ -1061,7 +1092,7 @@ describe("runMemoryFlushIfNeeded", () => {
       replyOperation: createReplyOperation(),
     });
 
-    const compactCall = requireCompactEmbeddedPiSessionCall();
+    const compactCall = requireCompactEmbeddedAgentSessionCall();
     expect(compactCall.currentTokenCount).toBeGreaterThanOrEqual(96_000);
   });
 
@@ -1117,7 +1148,7 @@ describe("runMemoryFlushIfNeeded", () => {
     });
 
     expect(entry).toBe(sessionEntry);
-    expect(compactEmbeddedPiSessionMock).not.toHaveBeenCalled();
+    expect(compactEmbeddedAgentSessionMock).not.toHaveBeenCalled();
   });
 
   it("does not treat raw transcript metadata bytes as token pressure", async () => {
@@ -1186,7 +1217,7 @@ describe("runMemoryFlushIfNeeded", () => {
     });
 
     expect(entry).toBe(sessionEntry);
-    expect(compactEmbeddedPiSessionMock).not.toHaveBeenCalled();
+    expect(compactEmbeddedAgentSessionMock).not.toHaveBeenCalled();
   });
 
   it("triggers preflight compaction when the active transcript exceeds the configured byte threshold", async () => {
@@ -1239,7 +1270,7 @@ describe("runMemoryFlushIfNeeded", () => {
 
     expect(entry?.compactionCount).toBe(1);
     expect(replyOperation.setPhase).toHaveBeenCalledWith("preflight_compacting");
-    const compactCall = requireCompactEmbeddedPiSessionCall();
+    const compactCall = requireCompactEmbeddedAgentSessionCall();
     expect(compactCall.sessionId).toBe("session");
     expect(compactCall.trigger).toBe("budget");
     expect(compactCall.currentTokenCount).toBe(10);
@@ -1287,7 +1318,7 @@ describe("runMemoryFlushIfNeeded", () => {
     });
 
     expect(entry).toBe(sessionEntry);
-    expect(compactEmbeddedPiSessionMock).not.toHaveBeenCalled();
+    expect(compactEmbeddedAgentSessionMock).not.toHaveBeenCalled();
   });
 
   it("uses configured prompts and stored bootstrap warning signatures", async () => {
@@ -1337,7 +1368,7 @@ describe("runMemoryFlushIfNeeded", () => {
       replyOperation: createReplyOperation(),
     });
 
-    const flushCall = requireEmbeddedPiAgentCall();
+    const flushCall = requireEmbeddedAgentCall();
     expect(flushCall.prompt).toContain("Write notes.");
     expect(flushCall.prompt).toContain("NO_REPLY");
     expect(flushCall.prompt).toContain("MEMORY.md");
